@@ -8,9 +8,11 @@ Threshhold=25
 
 for i in mp_pose.PoseLandmark:
     landmarks_name.append(i)
+
+
 class Angles:
-    def __init__(self, name="to be set",points="to be set"):
-        self.name=name
+    def __init__(self, joint_name="to be set",points="to be set"):
+        self.name=joint_name
         self.points=points
         self.source_tracker=[]
         self.sink_tracker=[]
@@ -60,3 +62,30 @@ class Angles:
         elif angle1<angle2-self.threshold:
             self.match=1
         return self.match
+
+
+class Asanas:
+    def __init__(self, asana_name="to be set", variables=None, triggers=None, function=None):
+        self.name=asana_name
+        self.variables=variables
+        self.triggers=triggers
+        self.function=function
+
+        if variables==None:
+            print("provide variables")
+        if triggers==None:
+            print("provide triggers")
+        if function==None:
+            print("provide function")
+
+
+    def detect_stage(self):
+        vars=[x.sink_tracker[-1] for x in self.variables]
+        vars=tuple(vars)
+        output=self.function(*vars)
+
+        for key in self.triggers.keys():
+            if output <= self.triggers[key]:
+                return key
+
+        return -1

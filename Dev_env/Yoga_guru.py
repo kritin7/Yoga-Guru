@@ -13,8 +13,9 @@ mp_pose = mp.solutions.pose
 mp_holistic = mp.solutions.holistic
 Rotation=["clockwise","anticlockwise"]
 
+sink_origin=0 # Trikon/Bhumi_Trik.mp4
 
-sink = cv2.VideoCapture("Trikon/Bhumi_Trik.mp4")
+sink = cv2.VideoCapture(sink_origin)
 source = cv2.VideoCapture("Data/source.mp4")
 source_fps=source.get(cv2.CAP_PROP_FPS)
 
@@ -34,6 +35,11 @@ l_hip=ch.Angles("left hip",[11,23,25])
 r_hip=ch.Angles("right hip",[12,24,26])
 
 body_parts=[l_elbow,r_elbow,l_shoulder,r_shoulder,l_hip,r_hip,l_knee,r_knee]
+
+def trigger_func(A,B):
+    return A-B
+
+trik_asana=ch.Asanas("Trikon",variables=[l_hip,r_hip],triggers={"left":30},function=trigger_func)
 
 def track_all_angles(source_pose,sink_pose,body_parts=body_parts):
     for tag,pose in zip(["source","sink"],[source_pose,sink_pose]):
@@ -108,7 +114,7 @@ while sink.isOpened():
 
     # cv2.imshow("source",source_image)
 
-
+    print(trik_asana.detect_stage())
 
 
     key = cv2.waitKey(1)
