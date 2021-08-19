@@ -50,7 +50,10 @@ class Angles:
         
 
     def generate_score(self):
-        self.score=100*(1-dtw.distance(np.array(self.source_tracker)/180,np.array(self.sink_tracker)/180))
+        sink_actions,source_actions=np.array(self.sink_tracker)/180,np.array(self.source_tracker)/180
+        sink_actions=sink_actions/np.linalg.norm(sink_actions)
+        source_actions=source_actions/np.linalg.norm(source_actions)
+        self.score=100*(1-dtw.distance(sink_actions,source_actions))
         return self.score
 
     def generate_instructions(self,ideal):

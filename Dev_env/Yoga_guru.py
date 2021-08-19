@@ -203,6 +203,10 @@ sink.release()
 source.release()
 
 
-
+scores=[]
 for part in body_parts:
-    print(part.name,part.generate_score())
+    score=part.generate_score()
+    scores.append(score)
+    print(part.name,score)
+
+print("average score = ",np.average(np.array(scores)))
