@@ -21,9 +21,7 @@ source_fps=source.get(cv2.CAP_PROP_FPS)
 width  = source.get(3)   # float `width`
 height = source.get(4)
 
-load_file=open("Trikon/IDEAL/trik_ideal.pickle","rb")
-ideal=pickle.load(load_file)
-load_file.close()
+### create objects for all the important joint, using the images from data/base.png
 
 l_elbow=ch.Angles("left elbow",[11,13,15])
 r_elbow=ch.Angles("right elbow",[12,14,16])
@@ -37,9 +35,24 @@ r_knee=ch.Angles("right knee",[24,26,28])
 l_hip=ch.Angles("left hip",[11,23,25])
 r_hip=ch.Angles("right hip",[12,24,26])
 
+### Add all the objects into this list
+
 body_parts=[l_elbow,r_elbow,l_shoulder,r_shoulder,l_hip,r_hip,l_knee,r_knee]
 
-def super_impose(sink_results,source_results):
+### create the evaluation function, for eg: [trikon left_hip_angle]-[right_hip_angle]
+
+def trigger_func(left_hip,right_hip):
+    ## parameters should be from the list of objects
+    return left_hip-right_hip
+
+### create an object of Asanas class, pass in its name, the variables to be fed to trigger, a dictionary of triggers, and the trigger_function for STAGE_DETECTION.
+
+trik_asana=ch.Asanas(asana_name="Trikon",variables=[l_hip,r_hip],triggers={"left":{"g":30},"right":{"l":-30}},function=trigger_func)
+
+
+### DO NOT TOUCH
+
+def align_pose(sink_results,source_results):
     global height,width
     angles=[]
     base=np.array([1,0])
@@ -62,41 +75,30 @@ def super_impose(sink_results,source_results):
 
         hip_local.append(np.array([x_mid,y_mid]))
         
-    # sink_hip_world=np.array([sink_results.pose_world_landmarks.landmark[mp_pose.PoseLandmark.LEFT_HIP].x,sink_results.pose_world_landmarks.landmark[mp_pose.PoseLandmark.LEFT_HIP].y])
-    # source_hip_world=np.array([source_results.pose_world_landmarks.landmark[mp_pose.PoseLandmark.LEFT_HIP].x,source_results.pose_world_landmarks.landmark[mp_pose.PoseLandmark.LEFT_HIP].y])
-    # source_hip_local=np.array([source_results.pose_landmarks.landmark[mp_pose.PoseLandmark.LEFT_HIP].x,source_results.pose_landmarks.landmark[mp_pose.PoseLandmark.LEFT_HIP].y])
 
-    # scale=[source_hip_local[0]/source_hip_world[0],source_hip_local[1]/source_hip_world[1]]
     offset=hip_local[0]-hip_local[1]
 
     for landmark_name in mp_pose.PoseLandmark:
         source_results.pose_landmarks.landmark[landmark_name].x+=offset[0]
         source_results.pose_landmarks.landmark[landmark_name].y+=offset[1]
 
-    # torso=up-down
-    # angles.append(np.degrees(np.arccos(np.dot(torso,base ) / (np.linalg.norm(torso) * np.linalg.norm(base)))))
 
-    # print(offset,[width,height])
-    # print([source_results.pose_landmarks.landmark[mp_pose.PoseLandmark.LEFT_HIP].x,source_results.pose_landmarks.landmark[mp_pose.PoseLandmark.LEFT_HIP].y],[sink_results.pose_landmarks.landmark[mp_pose.PoseLandmark.LEFT_HIP].x,sink_results.pose_landmarks.landmark[mp_pose.PoseLandmark.LEFT_HIP].y])
 
-def trigger_func(A,B):
-    return A-B
-
-def align_pose(sink_pose, source_pose):
-    return
-
-trik_asana=ch.Asanas("Trikon",variables=[l_hip,r_hip],triggers={"left":{"g":30},"right":{"l":-30}},function=trigger_func)
 
 def track_all_angles(source_pose,sink_pose,body_parts=body_parts):
     for tag,pose in zip(["source","sink"],[source_pose,sink_pose]):
         for part in body_parts:
             part.track_angle(pose,tag)
 
-def display_instruction(stage,ideal=ideal,body_parts=body_parts):
+def display_instruction(stage,body_parts=body_parts):
     if stage=="right":
-        load_file=open("Trikon/IDEAL/trik_ideal_right.pickle","rb")
-        ideal=pickle.load(load_file)
-        load_file.close()
+        file_name="Trikon/IDEAL/trik_ideal_right.pickle"
+    else:
+        file_name="Trikon/IDEAL/trik_ideal.pickle"
+
+    load_file=open(file_name,"rb")
+    ideal=pickle.load(load_file)
+    load_file.close()
     for n in range(len(body_parts)):
         match=body_parts[n].generate_instructions(ideal[n])
         if match==2:
@@ -104,6 +106,7 @@ def display_instruction(stage,ideal=ideal,body_parts=body_parts):
         else:
             cv2.putText(sink_image,body_parts[n].name+"->"+Rotation[match]+str(int(body_parts[n].sink_tracker[-1]))+"->"+str(int(ideal[n].source_tracker[-1])),(30,30+n*30),cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2, cv2.LINE_AA)
 
+    cv2.putText(sink_image,"Stage:" + str(stage),(800,50),cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 0, 255), 2, cv2.LINE_AA)
 
 sink_pose=mp_pose.Pose(
     min_detection_confidence=0.5,
@@ -115,9 +118,6 @@ source_pose=mp_pose.Pose(
     min_tracking_confidence=0.5) 
 
 frame=0
-
-# cv2.namedWindow("sink", cv2.WND_PROP_FULLSCREEN)
-# cv2.setWindowProperty("sink", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
 
 while sink.isOpened():
     
@@ -150,7 +150,7 @@ while sink.isOpened():
     sink_image.flags.writeable = True
     sink_image = cv2.cvtColor(sink_image, cv2.COLOR_RGB2BGR)
     try:
-        super_impose(sink_results,source_results)
+        align_pose(sink_results,source_results)
     except Exception as e:
         print("super impose:",e)
 
@@ -171,7 +171,7 @@ while sink.isOpened():
         stage=trik_asana.detect_stage()
         display_instruction(stage)
     except Exception as e:
-        print("stage detection:",e)
+        print("stage detection + istruction generation:",e)
 
     cv2.imshow("sink",sink_image)
 
@@ -204,5 +204,5 @@ source.release()
 
 
 
-# for part in body_parts:
-#     print(part.name,part.generate_score())
+for part in body_parts:
+    print(part.name,part.generate_score())

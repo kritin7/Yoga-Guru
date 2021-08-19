@@ -50,7 +50,7 @@ class Angles:
         
 
     def generate_score(self):
-        self.score=100*(1-dtw.distance(self.source_tracker,self.sink_tracker))
+        self.score=100*(1-dtw.distance(np.array(self.source_tracker)/180,np.array(self.sink_tracker)/180))
         return self.score
 
     def generate_instructions(self,ideal):
