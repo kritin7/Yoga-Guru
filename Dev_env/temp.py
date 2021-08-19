@@ -27,13 +27,13 @@ def track_all_angles(pose,body_parts=body_parts):
 
 
 with mp_pose.Pose(static_image_mode=True, min_detection_confidence=0.8) as pose:
-    img=cv2.imread("Trikon/IDEAL/image.jpg")
+    img=cv2.imread("Trikon/IDEAL/image_right.jpg")
     results = pose.process(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
     track_all_angles(results)
 
 for part in body_parts:
     print(part.name,part.source_tracker)
 
-save_file=open("Trikon/IDEAL/trik_ideal.pickle","wb")
+save_file=open("Trikon/IDEAL/trik_ideal_right.pickle","wb")
 pickle.dump(body_parts,save_file)
 save_file.close()

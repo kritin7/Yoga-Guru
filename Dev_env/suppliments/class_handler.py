@@ -9,6 +9,7 @@ Threshhold=25
 for i in mp_pose.PoseLandmark:
     landmarks_name.append(i)
 
+# print(landmarks_name)
 
 class Angles:
     def __init__(self, joint_name="to be set",points="to be set"):
@@ -85,7 +86,12 @@ class Asanas:
         output=self.function(*vars)
 
         for key in self.triggers.keys():
-            if output <= self.triggers[key]:
-                return key
+            trigger_val=list(self.triggers[key].values())[0]
+            if "g" in self.triggers[key].keys():
+                if output >= trigger_val:
+                    return key
+            else:
+                if output <= trigger_val:
+                    return key
 
         return -1
