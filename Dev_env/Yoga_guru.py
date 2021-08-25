@@ -11,7 +11,8 @@ import pickle
 mp_drawing = mp.solutions.drawing_utils
 mp_pose = mp.solutions.pose
 mp_holistic = mp.solutions.holistic
-Rotation=["clockwise","anticlockwise"]
+Rotation=["clockwise","anticlockwise",""]
+color_scale=[(0,0,255),(0,255,255),(0,255,0)]
 
 sink_origin="Trikon/Bhumi_Trik.mp4"
 
@@ -56,7 +57,7 @@ def align_pose(sink_results,source_results):
     global height,width
     angles=[]
     base=np.array([1,0])
-    up=[]
+    shoulder_local=[]
     hip_local=[]
     for i in [sink_results,source_results]:
         x_mid=0.50*(i.pose_landmarks.landmark[mp_pose.PoseLandmark.LEFT_SHOULDER].x+i.pose_landmarks.landmark[mp_pose.PoseLandmark.RIGHT_SHOULDER].x)
@@ -65,22 +66,30 @@ def align_pose(sink_results,source_results):
         i.pose_landmarks.landmark[mp_pose.PoseLandmark.LEFT_SHOULDER].y=y_mid
         i.pose_landmarks.landmark[mp_pose.PoseLandmark.RIGHT_SHOULDER].x=x_mid
         i.pose_landmarks.landmark[mp_pose.PoseLandmark.RIGHT_SHOULDER].y=y_mid
-        up.append(np.array([x_mid,y_mid]))
+        shoulder_local.append(np.array([x_mid,y_mid]))
+
         x_mid=0.50*(i.pose_landmarks.landmark[mp_pose.PoseLandmark.LEFT_HIP].x+i.pose_landmarks.landmark[mp_pose.PoseLandmark.RIGHT_HIP].x)
         y_mid=0.50*(i.pose_landmarks.landmark[mp_pose.PoseLandmark.LEFT_HIP].y+i.pose_landmarks.landmark[mp_pose.PoseLandmark.RIGHT_HIP].y)
         i.pose_landmarks.landmark[mp_pose.PoseLandmark.LEFT_HIP].x=x_mid
         i.pose_landmarks.landmark[mp_pose.PoseLandmark.LEFT_HIP].y=y_mid
         i.pose_landmarks.landmark[mp_pose.PoseLandmark.RIGHT_HIP].x=x_mid
         i.pose_landmarks.landmark[mp_pose.PoseLandmark.RIGHT_HIP].y=y_mid
-
         hip_local.append(np.array([x_mid,y_mid]))
         
+    sink_vector=[sink_results.pose_world_landmarks.landmark[mp_pose.PoseLandmark.LEFT_SHOULDER].x-sink_results.pose_world_landmarks.landmark[mp_pose.PoseLandmark.LEFT_HIP].x,
+                sink_results.pose_world_landmarks.landmark[mp_pose.PoseLandmark.LEFT_SHOULDER].y-sink_results.pose_world_landmarks.landmark[mp_pose.PoseLandmark.LEFT_HIP].y]
+    source_vector=[source_results.pose_world_landmarks.landmark[mp_pose.PoseLandmark.LEFT_SHOULDER].x-source_results.pose_world_landmarks.landmark[mp_pose.PoseLandmark.LEFT_HIP].x,
+                source_results.pose_world_landmarks.landmark[mp_pose.PoseLandmark.LEFT_SHOULDER].y-source_results.pose_world_landmarks.landmark[mp_pose.PoseLandmark.LEFT_HIP].y]
+    scale=1
+    # scale=np.linalg.norm(sink_vector)/np.linalg.norm(source_vector)
 
     offset=hip_local[0]-hip_local[1]
 
     for landmark_name in mp_pose.PoseLandmark:
-        source_results.pose_landmarks.landmark[landmark_name].x+=offset[0]
-        source_results.pose_landmarks.landmark[landmark_name].y+=offset[1]
+        point=np.array([source_results.pose_landmarks.landmark[landmark_name].x,source_results.pose_landmarks.landmark[landmark_name].y])
+        new_point=(point-hip_local[1])*scale+hip_local[1]+offset
+        source_results.pose_landmarks.landmark[landmark_name].x=new_point[0]
+        source_results.pose_landmarks.landmark[landmark_name].y=new_point[1]
 
 
 
@@ -100,11 +109,25 @@ def display_instruction(stage,body_parts=body_parts):
     ideal=pickle.load(load_file)
     load_file.close()
     for n in range(len(body_parts)):
-        match=body_parts[n].generate_instructions(ideal[n])
-        if match==2:
-            cv2.putText(sink_image,body_parts[n].name+"->"+"DONE",(300,30+n*30),cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2, cv2.LINE_AA)
+        text=""
+        match,performance=body_parts[n].generate_instructions(ideal[n])
+        if performance>=45:
+            color=color_scale[0]
+            text+="bend you must "
+        elif performance>=20:
+            color=color_scale[1]
+            text+="try bending a bit "
         else:
-            cv2.putText(sink_image,body_parts[n].name+"->"+Rotation[match]+str(int(body_parts[n].sink_tracker[-1]))+"->"+str(int(ideal[n].source_tracker[-1])),(30,30+n*30),cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2, cv2.LINE_AA)
+            color=color_scale[2]
+        if match==2:
+            text+="looks good"
+            
+        else:
+            pass
+        # print("text")
+        text+=Rotation[match]+str(int(body_parts[n].sink_tracker[-1]))+"->"+str(int(ideal[n].source_tracker[-1]))
+
+        cv2.putText(sink_image,body_parts[n].name+": "+text,(60,30+n*30),cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2, cv2.LINE_AA)
 
     cv2.putText(sink_image,"Stage:" + str(stage),(800,50),cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 0, 255), 2, cv2.LINE_AA)
 
